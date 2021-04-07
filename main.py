@@ -60,7 +60,6 @@ def main(email, inbox, search, folder, file_ext, mime_type):
     logging.StreamHandler().setFormatter(formatter)
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setLevel(logging.INFO)
-    stderr_handler.setFormatter(formatter)
     logger.addHandler(stderr_handler)
 
     logger.info(
