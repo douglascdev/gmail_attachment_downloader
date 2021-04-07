@@ -56,12 +56,7 @@ logger = logging.getLogger(__name__)
     help="MIME Type to filter attachments(guessed from extension by default)",
 )
 def main(email, inbox, search, folder, file_ext, mime_type):
-    formatter = logging.Formatter("%(asctime)s:%(name)s:%(levelname)s:%(message)s")
-    logging.basicConfig(level=logging.INFO, filename="log.txt", filemode="w")
-    logging.StreamHandler().setFormatter(formatter)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.INFO)
-    logger.addHandler(stderr_handler)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     logger.info(
         Template(
