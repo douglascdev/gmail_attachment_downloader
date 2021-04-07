@@ -1,16 +1,17 @@
-from mailbox import Message
-from typing import List
-from imapclient import IMAPClient
-from string import Template
-from imapclient.response_types import SearchIds
-import keyring
-import logging
-import click
-import getpass
 import email as lib_email
-import pathlib
+import getpass
+import logging
 import mimetypes
+import pathlib
 import sys
+from mailbox import Message
+from string import Template
+from typing import List
+
+import click
+import keyring
+from imapclient import IMAPClient
+from imapclient.response_types import SearchIds
 
 logger = logging.getLogger(__name__)
 
