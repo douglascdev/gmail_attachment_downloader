@@ -1,4 +1,4 @@
 .venv/
 venv/
 .idea/
-log.txt
+gmail_attachment_downloader.egg-info/
