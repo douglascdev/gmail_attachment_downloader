@@ -3,7 +3,6 @@ import getpass
 import logging
 import mimetypes
 import pathlib
-import sys
 from mailbox import Message
 from string import Template
 from typing import List
