@@ -5,12 +5,11 @@ import mimetypes
 import pathlib
 from mailbox import Message
 from string import Template
-from typing import List
+from typing import Generator
 
 import click
 import keyring
 from imapclient import IMAPClient
-from imapclient.response_types import SearchIds
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
     "-i",
     default="Inbox",
     show_default=True,
-    prompt="Inbox name",
     help="Name of the inbox containing your email",
 )
 @click.option(
@@ -58,9 +56,9 @@ def main(email, inbox, search, folder, file_ext, mime_type):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     logger.info(
-        Template(
-            'Script initialized with the arguments: "$arguments".'
-        ).safe_substitute(arguments=click.get_os_args())
+        Template("Script initialized with the arguments: $arguments").safe_substitute(
+            arguments=click.get_os_args()
+        )
     )
 
     service_name = "gmail_attachment_downloader"
@@ -79,7 +77,9 @@ def main(email, inbox, search, folder, file_ext, mime_type):
     with IMAPClient(host="imap.gmail.com", ssl=993) as imap_client:
         logger.info("Connected to IMAP server, attempting login")
         imap_client.login(email, passwd)
-        logger.info("Selecting inbox folder")
+        logger.info(
+            Template('Selecting inbox folder "$inbox"').safe_substitute(inbox=inbox)
+        )
         imap_client.select_folder(inbox, readonly=True)
         search_terms = Template("has:attachment ${search}").safe_substitute(
             search=search
@@ -90,12 +90,6 @@ def main(email, inbox, search, folder, file_ext, mime_type):
             )
         )
 
-        messages = imap_client.gmail_search(search_terms)
-        logger.info(
-            Template("Number of messages found: $num_msg").safe_substitute(
-                num_msg=len(messages)
-            )
-        )
         if not mime_type:
             made_up_fname = Template("${name}.${file_ext}").safe_substitute(
                 name="name", file_ext=file_ext
@@ -107,42 +101,57 @@ def main(email, inbox, search, folder, file_ext, mime_type):
                 )
             )
 
-        for message in fetch_attachments_filtering_type(
-            imap_client=imap_client, messages=messages, mime_type=mime_type
+        for filename, attachment in fetch_attachments(
+            imap_client, mime_type, search_terms
         ):
-            filename = create_unused_filename(
-                payload_fname=message.get_filename(),
-                file_ext=file_ext,
-                folder=folder,
+            filepath = pathlib.Path(folder) / pathlib.Path(
+                find_unused_filename(filename, file_ext, folder)
             )
-
-            attachment_bytes = message.get_payload(decode=True)
-            with open(filename, "wb") as file:
-                file.write(attachment_bytes)
+            with open(filepath, "wb") as file:
+                file.write(attachment)
 
             logger.info(
-                Template("Downloaded file: ${file}").safe_substitute(file=filename)
+                Template('Saved file "${filename}" at "${filepath}"').safe_substitute(
+                    filename=filename, filepath=filepath
+                )
             )
 
 
-def fetch_attachments_filtering_type(
-    imap_client: IMAPClient, messages: SearchIds, mime_type: str
-) -> List[Message]:
-    """
-    Fetch the imap server for a list of messages with the specified MIME type
-    :param imap_client: the IMAPCLient object
-    :param messages: the list of messages filtered by search terms
-    :param mime_type: the MIME Type to filter attachments by type
-    :return: list of Message objects with attachments
-    """
-    for uid, message_data in imap_client.fetch(messages, "RFC822").items():
-        email_message = lib_email.message_from_bytes(message_data[b"RFC822"])
-        return [
-            p for p in email_message.get_payload() if p.get_content_type() == mime_type
-        ]
+def fetch_attachments(imap_client: IMAPClient, mime_type: str, search_terms: str):
+    messages = imap_client.gmail_search(search_terms)
+
+    logger.info(
+        Template("Number of messages found: $num_msg").safe_substitute(
+            num_msg=len(messages)
+        )
+    )
+
+    response = imap_client.fetch(
+        messages, ["FLAGS", "BODY", "RFC822.SIZE", "ENVELOPE", "RFC822"]
+    )
+    for _, data in response.items():
+        raw = lib_email.message_from_bytes(data[b"RFC822"])
+        for msg in get_attachment_msgs(raw, mime_type):
+            yield msg.get_filename(), msg.get_payload(decode=True)
 
 
-def create_unused_filename(
+def msg_has_attachment(msg: Message) -> bool:
+    return (
+        msg.get_content_type() != "multipart"
+        and msg.get("Content-Disposition")
+        and msg.get_filename()
+    )
+
+
+def get_attachment_msgs(msg: Message, mime_type: str) -> Generator:
+    return (
+        msg
+        for msg in msg.walk()
+        if msg_has_attachment(msg) and msg.get_content_type() == mime_type
+    )
+
+
+def find_unused_filename(
     payload_fname: str, file_ext: str, folder: str
 ) -> pathlib.Path:
     """
