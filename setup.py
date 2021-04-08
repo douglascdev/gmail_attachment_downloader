@@ -13,8 +13,8 @@ with open("requirements/requirements.txt", encoding="utf-8") as file:
 # calling the setup function
 setup(
     name="gmail_attachment_downloader",
-    version="0.0.1",
-    description="A simple snake game",
+    version="0.0.2",
+    description="A simple command line application that downloads all the gmail attachments with the specified format and search terms",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/douglascdev/gmail_attachment_downloader",
