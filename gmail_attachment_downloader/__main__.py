@@ -6,13 +6,15 @@ import pathlib
 from mailbox import Message
 from string import Template
 from typing import Generator
+import re
+import random
+import string
 
 import click
 import keyring
 from imapclient import IMAPClient
 
 logger = logging.getLogger(__name__)
-
 
 @click.command()
 @click.option(
@@ -62,6 +64,10 @@ def main(email, inbox, search, folder, file_ext, mime_type):
     )
 
     service_name = "gmail_attachment_downloader"
+
+    # Ensure the directory for saving attachments exists
+    ensure_directory_exists(folder)
+
     passwd = keyring.get_password(service_name, email)
     if passwd:
         logger.info(
@@ -142,7 +148,6 @@ def msg_has_attachment(msg: Message) -> bool:
         and msg.get_filename()
     )
 
-
 def get_attachment_msgs(msg: Message, mime_type: str) -> Generator:
     return (
         msg
@@ -150,26 +155,51 @@ def get_attachment_msgs(msg: Message, mime_type: str) -> Generator:
         if msg_has_attachment(msg) and msg.get_content_type() == mime_type
     )
 
+def ensure_directory_exists(folder: str):
+    """
+    Ensures that the specified directory exists. Creates it if it doesn't.
+    :param folder: The directory path to check and create if necessary.
+    """
+    folder_path = pathlib.Path(folder)
+    if not folder_path.exists():
+        folder_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created directory: {folder}")
 
-def find_unused_filename(
-    payload_fname: str, file_ext: str, folder: str
-) -> pathlib.Path:
+def sanitize_filename(filename: str) -> str:
     """
-    Finds an unused filename for the attachment to be saved at
-    :param payload_fname: filename used in the attachment
-    :param file_ext: extension that new generated filenames will have
-    :param folder: folder where files will be saved
-    :return: a filename that is not used
+    Sanitize the filename to remove unsafe characters.
     """
+    # Replace unsafe characters with underscores
+    return re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', filename)
+
+def generate_random_string(length=6):
+    """
+    Generate a random alphanumeric string of the given length.
+    """
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def find_unused_filename(payload_fname: str, file_ext: str, folder: str) -> pathlib.Path:
+    """
+    Finds an unused filename for the attachment to be saved at.
+    """
+    # Sanitize the original filename
+    safe_fname = sanitize_filename(payload_fname)
+    base_name, ext = pathlib.Path(safe_fname).stem, pathlib.Path(safe_fname).suffix
+
+    # Use provided extension if no extension in the original filename
+    if not ext:
+        ext = f".{file_ext}"
+
+    # Check if file exists, and modify filename if it does
     counter = 1
-    fname = payload_fname
-    while not fname or (pathlib.Path(folder) / pathlib.Path(fname)).exists():
-        fname = Template("attachment$counter.$file_ext").safe_substitute(
-            counter=counter, file_ext=file_ext
-        )
+    while True:
+        fname = f"{base_name}{ext}"
+        if counter > 1:
+            fname = f"{base_name}_{generate_random_string()}{ext}"
+        full_path = pathlib.Path(folder) / fname
+        if not full_path.exists():
+            return fname  # Return only the filename, not the full path
         counter += 1
-    return pathlib.Path(folder) / pathlib.Path(fname)
-
 
 if __name__ == "__main__":
     main()
