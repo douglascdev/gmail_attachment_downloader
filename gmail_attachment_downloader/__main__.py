@@ -113,9 +113,8 @@ def main(email, inbox, search, folder, file_ext, mime_type):
         for filename, attachment in fetch_attachments(
             imap_client, mime_type, search_terms
         ):
-            filepath = pathlib.Path(folder) / pathlib.Path(
-                find_unused_filename(filename, file_ext, folder)
-            )
+            filepath = find_unused_filepath(filename, file_ext, pathlib.Path(folder))
+
             with open(filepath, "wb") as file:
                 file.write(attachment)
 
@@ -194,8 +193,8 @@ def generate_random_string(length=6):
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
-def find_unused_filename(
-    payload_fname: str, file_ext: str | None, folder: str
+def find_unused_filepath(
+    payload_fname: str, file_ext: str | None, folder: pathlib.Path
 ) -> pathlib.Path:
     """
     Finds an unused filename for the attachment to be saved at.
@@ -214,16 +213,12 @@ def find_unused_filename(
     # but we still want to save it as .txt
     ext = f".{ext}" if not file_ext else f".{file_ext}"
 
-    # Check if file exists, and modify filename if it does
-    counter = 1
-    while True:
-        fname = f"{base_name}{ext}"
-        if counter > 1:
-            fname = f"{base_name}_{generate_random_string()}{ext}"
-        full_path = pathlib.Path(folder) / fname
-        if not full_path.exists():
-            return fname  # Return only the filename, not the full path
-        counter += 1
+    fname = f"{base_name}{ext}"
+
+    while (folder / fname).exists():
+        fname = f"{base_name}_{generate_random_string()}{ext}"
+
+    return folder / fname
 
 
 if __name__ == "__main__":
