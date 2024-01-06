@@ -44,13 +44,14 @@ logger = logging.getLogger(__name__)
     help="Folder where attachments will be saved",
 )
 @click.option(
-    "--file_ext",
+    "--file-ext",
     "-ext",
+    default=None,
     prompt="Attachment extension",
-    help="Extension in which the downloaded attachments will be saved",
+    help="Filter attachments by file extension",
 )
 @click.option(
-    "--mime_type",
+    "--mime-type",
     "-m",
     help="MIME Type to filter attachments(guessed from extension by default)",
 )
@@ -96,7 +97,9 @@ def main(email, inbox, search, folder, file_ext, mime_type):
             )
         )
 
-        if not mime_type:
+        # If user wants to filter by extension but didn't provide a MIME type,
+        # try to guess the MIME type from the extension
+        if file_ext and not mime_type:
             made_up_fname = Template("${name}.${file_ext}").safe_substitute(
                 name="name", file_ext=file_ext
             )
@@ -123,7 +126,9 @@ def main(email, inbox, search, folder, file_ext, mime_type):
             )
 
 
-def fetch_attachments(imap_client: IMAPClient, mime_type: str, search_terms: str):
+def fetch_attachments(
+    imap_client: IMAPClient, mime_type: str | None, search_terms: str
+):
     messages = imap_client.gmail_search(search_terms)
 
     logger.info(
@@ -149,12 +154,15 @@ def msg_has_attachment(msg: Message) -> bool:
     )
 
 
-def get_attachment_msgs(msg: Message, mime_type: str) -> Generator:
-    return (
-        msg
-        for msg in msg.walk()
-        if msg_has_attachment(msg) and msg.get_content_type() == mime_type
-    )
+def get_attachment_msgs(msg: Message, mime_type: str | None) -> Generator:
+    if mime_type is None:
+        return (msg for msg in msg.walk())
+    else:
+        return (
+            msg
+            for msg in msg.walk()
+            if msg_has_attachment(msg) and msg.get_content_type() == mime_type
+        )
 
 
 def ensure_directory_exists(folder: str):
@@ -187,7 +195,7 @@ def generate_random_string(length=6):
 
 
 def find_unused_filename(
-    payload_fname: str, file_ext: str, folder: str
+    payload_fname: str, file_ext: str | None, folder: str
 ) -> pathlib.Path:
     """
     Finds an unused filename for the attachment to be saved at.
