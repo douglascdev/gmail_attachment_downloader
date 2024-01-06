@@ -191,6 +191,10 @@ def find_unused_filename(
 ) -> pathlib.Path:
     """
     Finds an unused filename for the attachment to be saved at.
+    :param payload_fname: filename used in the attachment
+    :param file_ext: extension the file will be saved with
+    :param folder: folder where files will be saved
+    :return: an unused file path
     """
     # Sanitize the original filename
     safe_fname = sanitize_filename(payload_fname)
