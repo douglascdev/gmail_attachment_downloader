@@ -208,9 +208,11 @@ def find_unused_filename(
     safe_fname = sanitize_filename(payload_fname)
     base_name, ext = pathlib.Path(safe_fname).stem, pathlib.Path(safe_fname).suffix
 
-    # Use provided extension if no extension in the original filename
-    if not ext:
-        ext = f".{file_ext}"
+    # Since the extension filtering is done using the MIME type, it's possible
+    # that ext is wrong or empty, so we want to use file_ext unless that's empty.
+    # A text file sent from Linux, for example, might not have the .txt extension,
+    # but we still want to save it as .txt
+    ext = f".{ext}" if not file_ext else f".{file_ext}"
 
     # Check if file exists, and modify filename if it does
     counter = 1
