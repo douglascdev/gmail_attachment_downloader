@@ -3,18 +3,18 @@ import getpass
 import logging
 import mimetypes
 import pathlib
+import random
+import string
 from mailbox import Message
 from string import Template
 from typing import Generator
-import re
-import random
-import string
 
 import click
 import keyring
 from imapclient import IMAPClient
 
 logger = logging.getLogger(__name__)
+
 
 @click.command()
 @click.option(
@@ -148,12 +148,14 @@ def msg_has_attachment(msg: Message) -> bool:
         and msg.get_filename()
     )
 
+
 def get_attachment_msgs(msg: Message, mime_type: str) -> Generator:
     return (
         msg
         for msg in msg.walk()
         if msg_has_attachment(msg) and msg.get_content_type() == mime_type
     )
+
 
 def ensure_directory_exists(folder: str):
     """
@@ -165,20 +167,28 @@ def ensure_directory_exists(folder: str):
         folder_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created directory: {folder}")
 
+
 def sanitize_filename(filename: str) -> str:
     """
     Sanitize the filename to remove unsafe characters.
     """
+    allowed_chars = string.ascii_letters + string.digits + "_.-"
+
     # Replace unsafe characters with underscores
-    return re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', filename)
+    result = (c if c in allowed_chars else "_" for c in filename)
+    return "".join(result)
+
 
 def generate_random_string(length=6):
     """
     Generate a random alphanumeric string of the given length.
     """
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
-def find_unused_filename(payload_fname: str, file_ext: str, folder: str) -> pathlib.Path:
+
+def find_unused_filename(
+    payload_fname: str, file_ext: str, folder: str
+) -> pathlib.Path:
     """
     Finds an unused filename for the attachment to be saved at.
     """
@@ -200,6 +210,7 @@ def find_unused_filename(payload_fname: str, file_ext: str, folder: str) -> path
         if not full_path.exists():
             return fname  # Return only the filename, not the full path
         counter += 1
+
 
 if __name__ == "__main__":
     main()
