@@ -15,6 +15,7 @@ pip install gmail-attachment-downloader
 Check the available options with:
 ```
 > gmail_attachment_dl --help
+
 Usage: gmail_attachment_dl [OPTIONS]
 
 Options:
@@ -28,10 +29,8 @@ Options:
                          always filtered)  [default: ]
 
   -f, --folder TEXT      Folder where attachments will be saved
-  -ext, --file_ext TEXT  Extension in which the downloaded attachments will be
-                         saved
-
-  -m, --mime_type TEXT   MIME Type to filter attachments(guessed from
+  -ext, --file-ext TEXT  Filter attachments by file extension
+  -m, --mime-type TEXT   MIME Type to filter attachments(guessed from
                          extension by default)
 
   --help                 Show this message and exit.
